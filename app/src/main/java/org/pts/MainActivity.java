@@ -1,5 +1,7 @@
 package org.pts;
 
+import android.util.Log;
+
 import org.andengine.audio.sound.Sound;
 import org.andengine.audio.sound.SoundFactory;
 import org.andengine.engine.camera.Camera;
@@ -33,8 +35,10 @@ import org.andengine.util.debug.Debug;
 
 import java.io.IOException;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.Random;
+import java.util.Set;
 
 public class MainActivity extends SimpleBaseGameActivity {
 
@@ -47,13 +51,9 @@ public class MainActivity extends SimpleBaseGameActivity {
     private BitmapTextureAtlas backgroundAtlas;
     private ITexture fontTexture;
     private IFont font;
-    private TiledTextureRegion circleTextureRegion;
-    private BuildableBitmapTextureAtlas mBitmapTextureAtlas;
-    private TiledTextureRegion triangleTextureRegion;
-    private TiledTextureRegion squareTextureRegion;
-    private TiledTextureRegion rectangleTextureRegion;
-    //Map<Integer,Figure>  Figures  =  new Map<Integer,Figure>; //Figures - ассоциативный массив string -> TextureRegion
-    private Map Figures ;
+    private BuildableBitmapTextureAtlas pictureAtlas;
+    private HashMap<String,Figure> figures =  new HashMap<String,Figure>();
+    private HashMap<String,TextureRegion> textures =  new HashMap<String,TextureRegion>();
     Text text;
     String taskFigure = "square";
     String task;
@@ -66,6 +66,8 @@ public class MainActivity extends SimpleBaseGameActivity {
         camera = new Camera(0, 0, CAMERA_WIDTH, CAMERA_HEIGHT);
         EngineOptions engineOptions = new EngineOptions(true, ScreenOrientation.LANDSCAPE_FIXED,
                 new FillResolutionPolicy(), camera);
+        engineOptions.getAudioOptions().setNeedsMusic(true);
+        engineOptions.getAudioOptions().setNeedsSound(true);
         return engineOptions;
     }
 
@@ -80,61 +82,28 @@ public class MainActivity extends SimpleBaseGameActivity {
 
 
         FontFactory.setAssetBasePath("font/");
-        this.fontTexture = new BitmapTextureAtlas(this.getTextureManager(),256,256,TextureOptions.BILINEAR);
+        fontTexture = new BitmapTextureAtlas(this.getTextureManager(),256,256,TextureOptions.BILINEAR);
         font = FontFactory.createFromAsset(this.getFontManager(), this.getTextureManager(), 1024, 1024, this.getAssets(),
                 "Round Script.ttf", 90, true, android.graphics.Color.WHITE);
 
-        this.fontTexture.load();
+        fontTexture.load();
         font.load();
 
 
-        this.mBitmapTextureAtlas = new BuildableBitmapTextureAtlas(this.getTextureManager(), 512, 256, TextureOptions.DEFAULT);
-
-        this.triangleTextureRegion = BitmapTextureAtlasTextureRegionFactory.createTiledFromAsset(this.mBitmapTextureAtlas,this,"rectangle.png",0,0); // size: 232x122
-        this.rectangleTextureRegion = BitmapTextureAtlasTextureRegionFactory.createTiledFromAsset(this.mBitmapTextureAtlas,this,"triangle.png",0,123);  // size: 79x69
-        this.circleTextureRegion = BitmapTextureAtlasTextureRegionFactory.createTiledFromAsset(this.mBitmapTextureAtlas,this,"circle.png",80,123);  // size: 80x80
-        this.squareTextureRegion = BitmapTextureAtlasTextureRegionFactory.createTiledFromAsset(this.mBitmapTextureAtlas,this,"square.png",161,123);  //size:  80x80
-        this.mBitmapTextureAtlas.load();
-
-        this.Figures = new HashMap<Integer,Figure>();
-        Figure triangle = new Figure(400, 120,"triangle",triangleTextureRegion,this.getVertexBufferObjectManager());
-        Figures.put(1,triangle);
-
-        Figure rectangle = new Figure(400, 200,"rectangle",rectangleTextureRegion,this.getVertexBufferObjectManager());
-        Figures.put(2,rectangle);
-
-        Figure circle = new Figure(500, 120,"circle",circleTextureRegion,this.getVertexBufferObjectManager());
-        Figures.put(3,circle);
-
-        Figure square = new Figure(500, 200,"square",squareTextureRegion,this.getVertexBufferObjectManager());
-        Figures.put(4,square);
-
+        String[] files = {"rectangle.png", "triangle.png", "circle.png", "square.png"};
+        pictureAtlas = new BuildableBitmapTextureAtlas(getTextureManager(), 512, 512, TextureOptions.BILINEAR_PREMULTIPLYALPHA);
+        for(int i = 0 ; i < files.length; i++)
+            textures.put(files[i], BitmapTextureAtlasTextureRegionFactory.createFromAsset(pictureAtlas, this, files[i]));
+        try{ pictureAtlas.build(new BlackPawnTextureAtlasBuilder<IBitmapTextureAtlasSource, BitmapTextureAtlas>(0, 1, 1)); }
+        catch(Exception e){ e.printStackTrace(); }
+        pictureAtlas.load();
         Random random = new Random();
-        int numOfFigure=random.nextInt(3)+1;
+        for(int i = 0 ; i < files.length; i++)
+            figures.put(files[i], new Figure(random.nextInt(600), random.nextInt(400), files[i], textures.get(files[i]), this.getVertexBufferObjectManager()));
 
-        switch (numOfFigure) {
-            case 1: {
-                taskFigure = "triangle";
-                task = "Найди треугольник!";
-            }
-                break;
-            case 2:{
-                taskFigure = "rectangle";
-                task = "Найди прямоугольник!";
-            }
-                break;
-            case 3:{
-                taskFigure = "circle";
-                task = "Найди круг!";
-            }
-                break;
-            case 4:
-            {
-                taskFigure = "square";
-                task = "Найди квадрат!";
-            }
-                break;
-        }
+        int numOfFigure=random.nextInt(files.length);
+        taskFigure = files[numOfFigure];
+        task = "Найди " + taskFigure.substring(0, taskFigure.indexOf('.')) + "!";
 
         try {
             SoundFactory.setAssetBasePath("snd/");
@@ -151,14 +120,17 @@ public class MainActivity extends SimpleBaseGameActivity {
         Scene scene = new Scene();
         final int centerX = (CAMERA_WIDTH / 2);
         final int centerY = (CAMERA_HEIGHT  / 2);
-        SpriteBackground bg = new SpriteBackground(new Sprite(centerX, centerY, bgTexture,getVertexBufferObjectManager()));
+        SpriteBackground bg = new SpriteBackground(new Sprite(0, 0, bgTexture, getVertexBufferObjectManager()));
         scene.setBackground(bg);
 
-
-        for(int i=1; i<5;i++){
-             temp = Figures.get(i);
-            scene.registerTouchArea(Figures.get(i));
-            scene.attachChild(Figures.get(i));
+        Set set = figures.entrySet();
+        Iterator iterator = set.iterator();
+        while(iterator.hasNext()) {
+            Map.Entry mentry = (Map.Entry)iterator.next();
+            Figure f = (Figure)mentry.getValue();
+            Log.i("poehali", f.figureName);
+            scene.registerTouchArea(f);
+            scene.attachChild(f);
         }
 
         text = new Text(50,50, font,task,getVertexBufferObjectManager());
@@ -166,16 +138,16 @@ public class MainActivity extends SimpleBaseGameActivity {
         return scene;
     }
     public class Figure extends Sprite{
-        public String name;
-        public Figure(final float pX, final float pY , String figure, final TiledTextureRegion pTextureRegion, final VertexBufferObjectManager pVertexBufferObjectManager) {
+        public String figureName;
+        public Figure(final float pX, final float pY , String figureName_, final TextureRegion pTextureRegion, final VertexBufferObjectManager pVertexBufferObjectManager) {
             super(pX,pY,pTextureRegion,pVertexBufferObjectManager);
-            this.name = figure;
+            this.figureName = figureName_;
         }
 
         @Override
          public boolean onAreaTouched(final TouchEvent pSceneTouchEvent, final float pTouchAreaLocalX, final float pTouchAreaLocalY){
             if (pSceneTouchEvent.isActionUp()) {
-                if(name.equals(taskFigure)) {
+                if(figureName.equals(taskFigure)) {
                     text.setText("Молодец!");
                     snd_yes.play();
                 }
