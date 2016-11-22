@@ -11,29 +11,20 @@ import org.andengine.engine.options.ScreenOrientation;
 import org.andengine.engine.options.resolutionpolicy.FillResolutionPolicy;
 import org.andengine.entity.scene.background.SpriteBackground;
 import org.andengine.entity.sprite.Sprite;
-import org.andengine.entity.text.Text;
 import org.andengine.input.touch.TouchEvent;
-import org.andengine.opengl.font.FontFactory;
-import org.andengine.opengl.font.IFont;
-import org.andengine.opengl.texture.ITexture;
 import org.andengine.opengl.texture.TextureOptions;
 import org.andengine.opengl.texture.atlas.bitmap.BitmapTextureAtlas;
 import org.andengine.opengl.texture.atlas.bitmap.BitmapTextureAtlasTextureRegionFactory;
-
 import org.andengine.opengl.texture.atlas.bitmap.BuildableBitmapTextureAtlas;
 import org.andengine.opengl.texture.atlas.bitmap.source.IBitmapTextureAtlasSource;
 import org.andengine.opengl.texture.atlas.buildable.builder.BlackPawnTextureAtlasBuilder;
 import org.andengine.opengl.texture.region.TextureRegion;
-import org.andengine.opengl.texture.region.TiledTextureRegion;
 import org.andengine.opengl.vbo.VertexBufferObjectManager;
-import org.andengine.opengl.vbo.attribute.VertexBufferObjectAttribute;
 import org.andengine.ui.activity.SimpleBaseGameActivity;
-
-import org.andengine.opengl.texture.region.ITextureRegion;
-import org.andengine.opengl.texture.atlas.buildable.builder.ITextureAtlasBuilder;
 import org.andengine.util.debug.Debug;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
@@ -49,17 +40,14 @@ public class MainActivity extends SimpleBaseGameActivity {
 
     private TextureRegion bgTexture;
     private BitmapTextureAtlas backgroundAtlas;
-    private ITexture fontTexture;
-    private IFont font;
     private BuildableBitmapTextureAtlas pictureAtlas;
     private HashMap<String,Figure> figures =  new HashMap<String,Figure>();
     private HashMap<String,TextureRegion> textures =  new HashMap<String,TextureRegion>();
-    Text text;
-    String taskFigure = "square";
-    String task;
+    private ArrayList<String> randFigure= new ArrayList<String>();
+    String taskFigure ;
     private Sound snd_no;
     private Sound snd_yes;
-    Figure temp;
+    private float fSize = (float)0.4*CAMERA_HEIGHT;
 
 
     @Override public EngineOptions onCreateEngineOptions() {
@@ -81,29 +69,70 @@ public class MainActivity extends SimpleBaseGameActivity {
         this.backgroundAtlas.load();
 
 
-        FontFactory.setAssetBasePath("font/");
-        fontTexture = new BitmapTextureAtlas(this.getTextureManager(),256,256,TextureOptions.BILINEAR);
-        font = FontFactory.createFromAsset(this.getFontManager(), this.getTextureManager(), 1024, 1024, this.getAssets(),
-                "Round Script.ttf", 90, true, android.graphics.Color.WHITE);
-
-        fontTexture.load();
-        font.load();
-
-
         String[] files = {"rectangle.png", "triangle.png", "circle.png", "square.png"};
         pictureAtlas = new BuildableBitmapTextureAtlas(getTextureManager(), 512, 512, TextureOptions.BILINEAR_PREMULTIPLYALPHA);
+
         for(int i = 0 ; i < files.length; i++)
             textures.put(files[i], BitmapTextureAtlasTextureRegionFactory.createFromAsset(pictureAtlas, this, files[i]));
+
         try{ pictureAtlas.build(new BlackPawnTextureAtlasBuilder<IBitmapTextureAtlasSource, BitmapTextureAtlas>(0, 1, 1)); }
-        catch(Exception e){ e.printStackTrace(); }
+        catch(Exception e)
+        {
+            e.printStackTrace();
+        }
         pictureAtlas.load();
         Random random = new Random();
-        for(int i = 0 ; i < files.length; i++)
-            figures.put(files[i], new Figure(random.nextInt(600), random.nextInt(400), files[i], textures.get(files[i]), this.getVertexBufferObjectManager()));
+        int loadedFigures=0;
+        boolean rectLoaded=false;
+        int j=0;
+        boolean fstline=false;
 
+        for(int i=0;i<files.length; i++)
+            randFigure.add(files[i]);
+
+        for(int i = 0 ; i < files.length; i++) {
+            int rf = random.nextInt(randFigure.size());
+
+
+            if(loadedFigures<files.length/2){
+                if(!rectLoaded)
+                    figures.put(randFigure.get(rf), new Figure(i * fSize + 2, 32, randFigure.get(rf), textures.get(randFigure.get(rf)), this.getVertexBufferObjectManager()));
+
+                else
+                    figures.put(randFigure.get(rf), new Figure(i*fSize+96, 32, randFigure.get(rf), textures.get(randFigure.get(rf)), this.getVertexBufferObjectManager()));
+
+                if(randFigure.get(rf).equals("rectangle.png")) {
+                    rectLoaded = true;
+                    fstline = true;
+                }
+                else{
+                    rectLoaded=false;
+                    fstline=false;
+                }
+            }
+            else{
+                if(!rectLoaded)
+                    figures.put(randFigure.get(rf), new Figure(j * fSize+2, 256, randFigure.get(rf), textures.get(randFigure.get(rf)), this.getVertexBufferObjectManager()));
+
+                else {
+                    if(fstline) {
+                        figures.put(randFigure.get(rf), new Figure(j * fSize + 2, 256, randFigure.get(rf), textures.get(randFigure.get(rf)), this.getVertexBufferObjectManager()));
+                        fstline=false;
+                    }
+                    else
+                        figures.put(randFigure.get(rf), new Figure(j * fSize + 96, 256, randFigure.get(rf), textures.get(randFigure.get(rf)), this.getVertexBufferObjectManager()));
+                }
+                if(randFigure.get(rf).equals("rectangle.png"))
+                    rectLoaded=true;
+                else rectLoaded=false;
+                j++;
+            }
+            loadedFigures++;
+            randFigure.remove(rf);
+        }
         int numOfFigure=random.nextInt(files.length);
         taskFigure = files[numOfFigure];
-        task = "Найди " + taskFigure.substring(0, taskFigure.indexOf('.')) + "!";
+
 
         try {
             SoundFactory.setAssetBasePath("snd/");
@@ -129,12 +158,14 @@ public class MainActivity extends SimpleBaseGameActivity {
             Map.Entry mentry = (Map.Entry)iterator.next();
             Figure f = (Figure)mentry.getValue();
             Log.i("poehali", f.figureName);
+            if(mentry.getKey().equals("rectangle.png"))
+                f.setSize((float)(fSize*1.5),fSize);
+            else
+                f.setSize(fSize,fSize);
             scene.registerTouchArea(f);
             scene.attachChild(f);
         }
 
-        text = new Text(50,50, font,task,getVertexBufferObjectManager());
-        scene.attachChild(text);
         return scene;
     }
     public class Figure extends Sprite{
@@ -148,11 +179,11 @@ public class MainActivity extends SimpleBaseGameActivity {
          public boolean onAreaTouched(final TouchEvent pSceneTouchEvent, final float pTouchAreaLocalX, final float pTouchAreaLocalY){
             if (pSceneTouchEvent.isActionUp()) {
                 if(figureName.equals(taskFigure)) {
-                    text.setText("Молодец!");
+                   // text.setText("Молодец!");
                     snd_yes.play();
                 }
                 else {
-                    text.setText("Неверно!");
+                   // text.setText("Неверно!");
                     snd_no.play();
                 }
             }
