@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/Preparetoschool.iml" filepath="$PROJECT_DIR$/Preparetoschool.iml" />
+      <module fileurl="file://$PROJECT_DIR$/PTS.iml" filepath="$PROJECT_DIR$/PTS.iml" />
       <module fileurl="file://$PROJECT_DIR$/andengine/andengine.iml" filepath="$PROJECT_DIR$/andengine/andengine.iml" />
       <module fileurl="file://$PROJECT_DIR$/app/app.iml" filepath="$PROJECT_DIR$/app/app.iml" />
     </modules>
