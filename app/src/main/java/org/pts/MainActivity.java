@@ -1,9 +1,10 @@
 package org.pts;
 
-import android.content.Context;
+import android.content.res.Resources;
 import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
-import android.graphics.drawable.PictureDrawable;
+import android.graphics.Picture;
 import android.util.Log;
 
 import org.andengine.audio.sound.Sound;
@@ -19,11 +20,7 @@ import org.andengine.input.touch.TouchEvent;
 import org.andengine.opengl.texture.TextureOptions;
 import org.andengine.opengl.texture.atlas.bitmap.BitmapTextureAtlas;
 import org.andengine.opengl.texture.atlas.bitmap.BitmapTextureAtlasTextureRegionFactory;
-import org.andengine.opengl.texture.atlas.bitmap.BuildableBitmapTextureAtlas;
 import org.andengine.opengl.texture.atlas.bitmap.source.IBitmapTextureAtlasSource;
-import org.andengine.opengl.texture.atlas.buildable.builder.BlackPawnTextureAtlasBuilder;
-import org.andengine.opengl.texture.bitmap.BitmapTexture;
-import org.andengine.opengl.texture.region.BaseTextureRegion;
 import org.andengine.opengl.texture.region.TextureRegion;
 import org.andengine.opengl.texture.region.TextureRegionFactory;
 import org.andengine.opengl.vbo.VertexBufferObjectManager;
@@ -32,8 +29,13 @@ import org.andengine.util.debug.Debug;
 import org.pts.BitmapTextureAtlasSource;
 import org.pts.SVGParser;
 import org.pts.SVG;
+//import org.poehali.BitmapTextureAtlasSource;
+//import com.larvalabs.svgandroid.SVGParser;
+//import com.larvalabs.svgandroid.SVG;
 
-import java.io.File;
+
+import java.io.BufferedReader;
+import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -64,6 +66,60 @@ public class MainActivity extends SimpleBaseGameActivity {
     private ArrayList<String> files =new ArrayList<String>();
     BitmapTextureAtlas textureAtlas;
 
+    class Task{
+        String nameOfTask;
+        String pathToResources;
+        String question;
+        String answer;
+        int random;
+
+        void setNameOfTask(String name){
+            this.nameOfTask=name;
+        }
+        void setPathToResources(String path){
+            this.pathToResources=path;
+        }
+        void setQuestion(String quest){
+            this.question=quest;
+        }
+        void setAnswer(String answer){
+            this.answer=answer;
+        }
+        void setRandom(int rand){
+            this.random=rand;
+        }
+
+        String getNameOfTask(){
+            return this.nameOfTask;
+        }
+        String getPathToResources(){
+            return this.pathToResources;
+        }
+        String getQuestion(){
+            return this.question;
+        }
+        String getAnswer(){
+            return this.answer;
+        }
+        int getRandom(){
+            return this.random;
+        }
+        Task(){
+            this.setNameOfTask(null);
+            this.setPathToResources(null);
+            this.setQuestion(null);
+            this.setAnswer(null);
+            this.setRandom(0);
+        }
+        Task(String name,String path, String quest,String answer,int rand){
+            this.setNameOfTask(name);
+            this.setPathToResources(path);
+            this.setQuestion(quest);
+            this.setAnswer(answer);
+            this.setRandom(rand);
+        }
+    }
+
     @Override public EngineOptions onCreateEngineOptions() {
         camera = new Camera(0, 0, CAMERA_WIDTH, CAMERA_HEIGHT);
         EngineOptions engineOptions = new EngineOptions(true, ScreenOrientation.LANDSCAPE_FIXED,
@@ -76,23 +132,17 @@ public class MainActivity extends SimpleBaseGameActivity {
     @Override protected void onCreateResources() {
         BitmapTextureAtlasTextureRegionFactory.setAssetBasePath("gfx/");
 
-
         this.backgroundAtlas = new BitmapTextureAtlas(this.getTextureManager(),1024, 1024,TextureOptions.DEFAULT);
-        bgTexture = BitmapTextureAtlasTextureRegionFactory.createFromAsset(this.backgroundAtlas, this, "blackboard.png", 0, 0);
+        Bitmap backgroundImage = decodeSampledBitmapFromResource(getResources(), R.drawable.blackboard,CAMERA_WIDTH,CAMERA_HEIGHT);
+        backgroundImage = Bitmap.createScaledBitmap(backgroundImage, CAMERA_WIDTH,CAMERA_HEIGHT, false);
+        IBitmapTextureAtlasSource bgTex= new BitmapTextureAtlasSource(backgroundImage);
+        backgroundAtlas.addTextureAtlasSource(bgTex,0,0);
+
+        bgTexture = BitmapTextureAtlasTextureRegionFactory.createFromSource(backgroundAtlas, bgTex, 0, 0);
         this.backgroundAtlas.load();
 
-
         try {
-            //Проходим по папке и записываем имена файлов
-            String txtPath = "file:///android_asset/svg/"; //Путь к папке с файлами
-            /*File directory = new File(txtPath);
-            for (File e : directory.listFiles()) {
-                if (e.isFile()) {
-                    String file_name=e.getName();
-                    file_name=file_name.substring(0,file_name.length()-4);  //Обрезаем расширение .svg
-                    files.add(file_name);
-                }
-            }*/
+
             for (String file_name : getAssets().list("svg")) {
                     file_name=file_name.substring(0,file_name.length()-4);  //Обрезаем расширение .svg
                     files.add(file_name);
@@ -103,18 +153,19 @@ public class MainActivity extends SimpleBaseGameActivity {
                 String path_to_file =  "svg/" + files.get(i)+".svg";
                 Log.i("poehali", path_to_file);
                 final SVG svg = SVGParser.getSVGFromAsset(getAssets(), path_to_file);
+                Picture svgPic = svg.resizePicture((int) fSize, (int) fSize);
 
-                PictureDrawable pictureDrawable = svg.createPictureDrawable();
-                Bitmap bitmap = Bitmap.createBitmap(pictureDrawable.getIntrinsicWidth(), pictureDrawable.getIntrinsicHeight(), Bitmap.Config.ARGB_8888);
+                //Bitmap bitmap = Bitmap.createBitmap(pictureDrawable.getIntrinsicWidth(), pictureDrawable.getIntrinsicHeight(), Bitmap.Config.ARGB_8888);
+                Bitmap bitmap = Bitmap.createBitmap((int)fSize, (int)fSize, Bitmap.Config.ARGB_8888);
                 Canvas canvas = new Canvas(bitmap);
-                canvas.drawPicture(pictureDrawable.getPicture());
-                canvas.scale(fSize, fSize);
+                canvas.drawPicture(svgPic);
                 currentBitmap = Bitmap.createBitmap(bitmap, 0, 0, (int)fSize, (int)fSize);
 
                 Log.i("poehali", "adding to atlas");
                 BitmapTextureAtlasSource source = new BitmapTextureAtlasSource(currentBitmap);
-                textureAtlas.addTextureAtlasSource(source, i*(int)fSize, 0);
-                TextureRegion textureRegion = (TextureRegion) TextureRegionFactory.createFromSource(textureAtlas, source, 0, 0);
+
+                textureAtlas.addTextureAtlasSource(source, i*(int)fSize,0);
+                TextureRegion textureRegion = (TextureRegion) TextureRegionFactory.createFromSource(textureAtlas, source, i*(int)fSize,0);
                 textures.put(files.get(i), textureRegion);
             }
         }
@@ -235,57 +286,86 @@ public class MainActivity extends SimpleBaseGameActivity {
 
     }
 
-   /*
-    //SVG -> TextureRegion
-   public class SVGTexturer {
-        Context mContext;
-        public SVGTexturer(Context pContext)
-        {
-            this.mContext = pContext;
-            SVGBitmapTextureAtlasTextureRegionFactory.setAssetBasePath("gfx/");
-        }
-        // SVG to TextureRegion
-        TextureRegion getSVG2TextureRegion(BuildableBitmapTextureAtlas ta,
-                                           String svgfile, int w, int h)
-        {
-            TextureRegion pTR=null;
-            BaseTextureRegion mSVGTextureRegions =
-                    SVGBitmapTextureAtlasTextureRegionFactory.createFromAsset(
-                            ta, mContext, svgfile, w, h);
+    public static int calculateInSampleSize(
+            BitmapFactory.Options options, int reqWidth, int reqHeight) {
+        // Raw height and width of image
+        final int height = options.outHeight;
+        final int width = options.outWidth;
+        int inSampleSize = 1;
 
-            pTR=(TextureRegion)mSVGTextureRegions;
-            return pTR;
+        if (height > reqHeight || width > reqWidth) {
+
+            final int halfHeight = height / 2;
+            final int halfWidth = width / 2;
+
+            // Calculate the largest inSampleSize value that is a power of 2 and keeps both
+            // height and width larger than the requested height and width.
+            while ((halfHeight / inSampleSize) >= reqHeight
+                    && (halfWidth / inSampleSize) >= reqWidth) {
+                inSampleSize *= 2;
+            }
         }
 
-        // Bitmap -> TextureRegion
-        public class BitmapTextureSource implements ITextureSource {
-
-        private Bitmap mBitmap = null;
-
-        public BitmapTextureSource(Bitmap bitmap) {
-            this.mBitmap = bitmap;
-        }
-
-        @Override
-        public int getWidth() {
-            return mBitmap.getWidth();
-        }
-
-        @Override
-        public int getHeight() {
-            return mBitmap.getHeight();
-        }
-
-        @Override
-        public Bitmap onLoadBitmap() {
-            return mBitmap.copy(mBitmap.getConfig(), false);
-        }
-
-        @Override
-        public BitmapTextureSource clone() {
-            return new BitmapTextureSource(mBitmap);
-        }
-
+        return inSampleSize;
     }
-     */
+
+    public static Bitmap decodeSampledBitmapFromResource(Resources res, int resId,
+                                                         int reqWidth, int reqHeight) {
+
+        // First decode with inJustDecodeBounds=true to check dimensions
+        final BitmapFactory.Options options = new BitmapFactory.Options();
+        options.inJustDecodeBounds = true;
+        options.inScaled = false;
+        BitmapFactory.decodeResource(res, resId, options);
+
+        // Calculate inSampleSize
+        options.inSampleSize = calculateInSampleSize(options, reqWidth, reqHeight);
+        Log.i("poehali", reqWidth+" "+reqHeight);
+        Log.i("poehali", options.inSampleSize+"");
+
+        // Decode bitmap with inSampleSize set
+        options.inJustDecodeBounds = false;
+        options.inScaled = false;
+        return BitmapFactory.decodeResource(res, resId, options);
+    }
+
+     Task formTask(String taskName) throws Exception
+     {
+         Task newTask =new Task();
+         newTask.setNameOfTask(taskName);
+         int[] taskForming = new int[5];
+
+         try
+         {
+             FileReader reader = new FileReader(taskName);
+             BufferedReader buff = new BufferedReader(reader);
+             String line=buff.readLine();
+             while(line!=null)
+             {
+                if(line.contains("<path>")) {
+                    newTask.setPathToResources(line.substring(6, line.length()));
+                    taskForming[1] = 1;
+                }
+                 if(line.contains("<question>")){
+                     newTask.setQuestion((line.substring(10,line.length())));
+                     taskForming[2] = 1;
+                 }
+                 if(line.contains("<answer>")){
+                     newTask.setAnswer(line.substring(8,line.length()));
+                     taskForming[3] = 1;
+                 }
+                 if(line.contains("<rand>")){
+                     newTask.setRandom(((int)line.charAt(6)));
+                     taskForming[4] = 1;
+                 }
+             }
+         }
+        catch(IOException ex) {
+            taskForming[0]=0;
+        }
+         for(int i=0; i<5;i++)
+             if(taskForming[i]==0)
+                throw new Exception("Ошибка открытия файла");
+        return newTask;
+    }
 }
